@@ -15,7 +15,7 @@ public partial class CameraRenderer
 
     private ShaderTagId _unlitShaderTagId = new ShaderTagId("SRPDefaultUnlit");
 
-    public void Render (ScriptableRenderContext Context, Camera TheCamera) {
+    public void Render (ScriptableRenderContext Context, Camera TheCamera, bool useDynamicBatching, bool useGPUInstancing) {
         _Context = Context;
         _camera = TheCamera;
         
@@ -30,7 +30,7 @@ public partial class CameraRenderer
         }
         
         Setup();
-        DrawVisibleGeometry();
+        DrawVisibleGeometry(useDynamicBatching, useGPUInstancing);
         DrawUnsuportShaders();
         DrawGizmos();
         Submit();
@@ -57,12 +57,16 @@ public partial class CameraRenderer
         return false;
     }
 
-    void DrawVisibleGeometry()
+    void DrawVisibleGeometry(bool useDynamicBatching, bool useGPUInstancing)
     {
         // 设置绘制顺序和指定渲染相机
         var sortingSettings = new SortingSettings(_camera) {criteria = SortingCriteria.CommonOpaque};
         // 设置渲染的shader pass和渲染排序
-        var drawSettings = new DrawingSettings(_unlitShaderTagId, sortingSettings);
+        var drawSettings = new DrawingSettings(_unlitShaderTagId, sortingSettings)
+        {
+            enableDynamicBatching =  useDynamicBatching,
+            enableInstancing = useGPUInstancing
+        };
         // 先绘制不透明队列
         var filterSettings = new FilteringSettings(RenderQueueRange.opaque);
         _Context.DrawRenderers(_cullingResults, ref drawSettings, ref filterSettings);

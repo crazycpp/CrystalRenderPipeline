@@ -12,3 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 74117b069f9577d43807255446081f72, type: 3}
   m_Name: Crystal Render Pipeline
   m_EditorClassIdentifier: 
+  _useDynamicBatching: 1
+  _UseGPUInstancing: 0
+  _useSRPBatcher: 0
