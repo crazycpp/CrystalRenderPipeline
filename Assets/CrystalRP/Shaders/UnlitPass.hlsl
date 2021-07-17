@@ -50,10 +50,10 @@ Varyings UnlitPassVertex(Attributes input)
 float4 UnlitPassFragment(Varyings input):SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(input);
-    float baseMap = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.baseUV);
-    float baseColor = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
+    float4 baseMap = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.baseUV);
+    float4 baseColor = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
     
-    return baseColor*baseMap;
+    return baseMap * baseColor; 
 }
 
 #endif

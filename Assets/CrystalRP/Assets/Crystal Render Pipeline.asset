@@ -13,5 +13,5 @@ MonoBehaviour:
   m_Name: Crystal Render Pipeline
   m_EditorClassIdentifier: 
   _useDynamicBatching: 1
-  _UseGPUInstancing: 0
-  _useSRPBatcher: 0
+  _UseGPUInstancing: 1
+  _useSRPBatcher: 1
