@@ -14,6 +14,9 @@ public partial class CameraRenderer
     private CullingResults _cullingResults;
 
     private ShaderTagId _unlitShaderTagId = new ShaderTagId("SRPDefaultUnlit");
+    private ShaderTagId _litShaderTagId = new ShaderTagId("CrystalLit");
+
+    private Lighting _lighting = new Lighting();
 
     public void Render (ScriptableRenderContext Context, Camera TheCamera, bool useDynamicBatching, bool useGPUInstancing) {
         _Context = Context;
@@ -30,6 +33,7 @@ public partial class CameraRenderer
         }
         
         Setup();
+        _lighting.Setup(Context, _cullingResults);
         DrawVisibleGeometry(useDynamicBatching, useGPUInstancing);
         DrawUnsuportShaders();
         DrawGizmos();
@@ -67,6 +71,9 @@ public partial class CameraRenderer
             enableDynamicBatching =  useDynamicBatching,
             enableInstancing = useGPUInstancing
         };
+        
+        // 同时渲染CrystalLit表示的pass
+        drawSettings.SetShaderPassName(1, _litShaderTagId);
         // 先绘制不透明队列
         var filterSettings = new FilteringSettings(RenderQueueRange.opaque);
         _Context.DrawRenderers(_cullingResults, ref drawSettings, ref filterSettings);

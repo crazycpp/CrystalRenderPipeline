@@ -1,7 +1,10 @@
-#ifndef CRP_UNLIT_PASS_INCLUDED
-#define CRP_UNLIT_PASS_INCLUDED
+#ifndef CRP_LIT_PASS_INCLUDED
+#define CRP_LIT_PASS_INCLUDED
 
 #include "../ShaderLibrary/Core.hlsl"
+#include "../ShaderLibrary/Surface.hlsl"
+#include "../ShaderLibrary/Light.hlsl"
+#include "../ShaderLibrary/Lighting.hlsl"
 
 /*CBUFFER_START(UnityPerMaterial)
 float4 _BaseColor;
@@ -21,34 +24,37 @@ UNITY_INSTANCING_BUFFER_END(UnityPerMaterial)
 // 顶点着色器的输入参数
 struct Attributes
 {
-    float3 positionOS:POSITION;
-    float2 baseUV :TEXCOORD0;
+    float3 positionOS : POSITION;
+    float3 normalOS : NORMAL;
+    float2 baseUV : TEXCOORD0;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
 struct Varyings
 {
     float4 positionCS:SV_POSITION;
+    float3 normalWS:VAR_NORMAL;
     float2 baseUV :VAR_BASE_UV;
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
 
-Varyings UnlitPassVertex(Attributes input)
+Varyings litPassVertex(Attributes input)
 {
     Varyings output;
     UNITY_SETUP_INSTANCE_ID(input)
     UNITY_TRANSFER_INSTANCE_ID(input, output);
     float3 positionWS = TransformObjectToWorld(input.positionOS);
     output.positionCS = TransformWorldToHClip(positionWS);
-
+    output.normalWS = TransformObjectToWorldNormal(input.normalOS);
+    
     // 计算偏移后的uv坐标
     float4 baseST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseMap_ST);
     output.baseUV = input.baseUV * baseST.xy + baseST.zw;
     return output;
 }
 
-float4 UnlitPassFragment(Varyings input):SV_Target
+float4 litPassFragment(Varyings input):SV_Target
 {
     UNITY_SETUP_INSTANCE_ID(input);
     float4 baseMap = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, input.baseUV);
@@ -61,7 +67,12 @@ float4 UnlitPassFragment(Varyings input):SV_Target
     clip(color.a - UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial,_Cutoff));
 #endif
 
-    return color; 
+    Surface surface;
+    surface.normal = normalize(input.normalWS);
+    surface.color = color.rgb;
+    surface.alpha = color.a;
+
+    return float4(GetLighting(surface), surface.alpha);
 }
 
 #endif

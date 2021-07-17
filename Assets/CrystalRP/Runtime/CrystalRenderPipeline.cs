@@ -12,6 +12,7 @@ public class CrystalRenderPipeline : RenderPipeline
         _useDynamicBatching = useDynamicBatching;
         _useGPUInctancing = useGPUInstancing;
         GraphicsSettings.useScriptableRenderPipelineBatching = useSRPBatcher;
+        GraphicsSettings.lightsUseLinearIntensity = true; // 灯光使用线性光照强度
     }
     
     protected override void Render(ScriptableRenderContext Content, Camera[] Cameras)
