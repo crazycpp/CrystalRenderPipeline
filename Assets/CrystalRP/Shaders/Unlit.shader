@@ -4,11 +4,11 @@ Shader "CrystalRenderPipeline/Unlit"
     {
         _BaseMap("Texture", 2D) = "white"{}
         _BaseColor("Color", Color) = (1.0, 1.0, 1.0, 1.0)
-        
+
         // alpha test threshold
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
         [Toggle(_CLIPPING)]_CLipping("Alpha Clipping", Float) = 0
-        
+
         // for alpha blend
         [Enum(UnityEngine.Rendering.BlendMode)]_SrcBlend ("Src Blend", FLoat) = 1
         [Enum(UnityEngine.Rendering.BlendMode)]_DstBlend("Dst Blend", Float) = 0
@@ -31,4 +31,6 @@ Shader "CrystalRenderPipeline/Unlit"
             ENDHLSL
         }
     }
+
+    CustomEditor "CrystalShaderGUI"
 }

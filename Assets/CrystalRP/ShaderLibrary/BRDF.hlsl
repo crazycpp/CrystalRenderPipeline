@@ -17,10 +17,14 @@ float OneMinusReflectivity(float metallic)
     return range - metallic * range;
 }
 
-BRDF GetBRDF(Surface surface)
+BRDF GetBRDF(Surface surface, bool applyAlphaToDiffuse = false)
 {
     BRDF brdf;
     brdf.diffuse = surface.color * OneMinusReflectivity(surface.metallic);
+    if (applyAlphaToDiffuse)
+    {
+        brdf.diffuse *= surface.alpha;
+    }
 
     // 根据能量守恒定律，表面反射的光能不能超过入社的光能，因此，镜面反射的遗憾色应该等于表面颜色减去漫反射颜色
     // 但是事实情况是，金属影响镜面反射的颜色，而非金属不影响。非金属的镜面反射应该是白色的。
