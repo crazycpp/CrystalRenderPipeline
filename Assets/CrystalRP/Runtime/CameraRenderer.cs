@@ -18,7 +18,7 @@ public partial class CameraRenderer
 
     private Lighting _lighting = new Lighting();
 
-    public void Render (ScriptableRenderContext Context, Camera TheCamera, bool useDynamicBatching, bool useGPUInstancing) {
+    public void Render (ScriptableRenderContext Context, Camera TheCamera, bool useDynamicBatching, bool useGPUInstancing, ShadowSettings shadowSettings) {
         _Context = Context;
         _camera = TheCamera;
         
@@ -27,13 +27,13 @@ public partial class CameraRenderer
         // 次操作可能会给Scene视图中增加一几何体，所以我需要在Cull之前调用这个方法
         PrepareForSceneWindow();
         
-        if (!Cull())
+        if (!Cull(shadowSettings.MaxDistance))
         {
             return;
         }
         
         Setup();
-        _lighting.Setup(Context, _cullingResults);
+        _lighting.Setup(Context, _cullingResults, shadowSettings);
         DrawVisibleGeometry(useDynamicBatching, useGPUInstancing);
         DrawUnsuportShaders();
         DrawGizmos();
@@ -49,11 +49,12 @@ public partial class CameraRenderer
         ExecuteBuffer();
     }
 
-    bool Cull()
+    bool Cull(float maxShadowDistance)
     {
         ScriptableCullingParameters p;
         if (_camera.TryGetCullingParameters(out p))
         {
+            p.shadowDistance = Mathf.Min(maxShadowDistance, _camera.farClipPlane);
             _cullingResults = _Context.Cull(ref p);
             return true;
         }
