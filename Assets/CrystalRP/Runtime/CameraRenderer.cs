@@ -31,12 +31,19 @@ public partial class CameraRenderer
         {
             return;
         }
-        
-        Setup();
+        _buffer.BeginSample(_sampleName);
+        ExecuteBuffer();
         _lighting.Setup(Context, _cullingResults, shadowSettings);
+        _buffer.EndSample(_sampleName);
+        Setup();
+        //绘制几何体
         DrawVisibleGeometry(useDynamicBatching, useGPUInstancing);
+        
         DrawUnsuportShaders();
+        
         DrawGizmos();
+        
+        _lighting.Cleanup();
         Submit();
     }
 

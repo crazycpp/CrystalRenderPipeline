@@ -1,3 +1,4 @@
+using System;
 using  UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using  UnityEngine.Rendering;
@@ -7,6 +8,7 @@ using  UnityEngine.Rendering;
 public class Shadow
 {
     private const string _BufferName = "Shadows";
+    private static int _DirectionalShadowAtlasID = Shader.PropertyToID("_DirectionalShadowAltas");
 
 
     private CommandBuffer _Buffer = new CommandBuffer() {name = _BufferName};
@@ -43,9 +45,46 @@ public class Shadow
         }
     }
 
+    public void Cleanup()
+    {
+        _Buffer.ReleaseTemporaryRT(_DirectionalShadowAtlasID);
+        ExecuteBuffer();
+    }
+
     void RenderDirectionalShadows()
     {
+        int atlasSize = (int) _ShadowSettings.DirectionalSettings.AtlasSize;
+        _Buffer.GetTemporaryRT(_DirectionalShadowAtlasID, atlasSize, atlasSize,32, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
         
+        // 把渲染数据存储的到_DirectionalShadowAtlas中
+        _Buffer.SetRenderTarget(_DirectionalShadowAtlasID, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+        // 清除深度缓冲区
+        _Buffer.ClearRenderTarget(true, false, Color.clear);
+        
+        _Buffer.BeginSample(_BufferName);
+        ExecuteBuffer();
+        for (int i = 0; i < _ShadowDirectionalLightCount; i++)
+        {
+            RenderDirectionalShadows(i, atlasSize);
+        }
+
+        _Buffer.EndSample(_BufferName);
+        ExecuteBuffer();
+    }
+
+    void RenderDirectionalShadows(int index, int tileSize)
+    {
+        ShadowDirectionalLight light = _ShadowDirectionalLights[index];
+        var shadowSettings = new ShadowDrawingSettings(_CullingResults, light.VisableLightIndex);
+
+        _CullingResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(light.VisableLightIndex, 0, 1, Vector3.zero,tileSize, 0,
+            out Matrix4x4 viewMatrix, out Matrix4x4 projectionMatrix, out ShadowSplitData splitData);
+
+        shadowSettings.splitData = splitData;
+        _Buffer.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
+        ExecuteBuffer();
+        _Context.DrawShadows(ref shadowSettings);
+
     }
 
     void ExecuteBuffer()
@@ -53,6 +92,8 @@ public class Shadow
         _Context.ExecuteCommandBuffer(_Buffer);
         _Buffer.Clear();
     }
+    
+    
     
     // 存储可见光的阴影数据
     public void ReserveDirectionalShadows(Light light, int visibleLightIndex)

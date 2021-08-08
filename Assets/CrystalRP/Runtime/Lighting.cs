@@ -40,6 +40,11 @@ public class Lighting
         _buffer.Clear();
     }
 
+    public void Cleanup()
+    {
+        _Shadow.Cleanup();
+    }
+
     // 将场景主光源的颜色和方向传递到GPU
     void SetupDirectionLight(int index, ref VisibleLight visibleLight)
     {
