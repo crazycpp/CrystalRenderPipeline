@@ -54,6 +54,7 @@ void ShadowCasterPassFragment(Varyings input)
     //透明度低于阈值，舍弃
     clip(base.a - UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Cutoff));
     #endif
+
 }
 
 

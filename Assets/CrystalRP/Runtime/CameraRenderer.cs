@@ -31,10 +31,12 @@ public partial class CameraRenderer
         {
             return;
         }
+        
         _buffer.BeginSample(_sampleName);
         ExecuteBuffer();
         _lighting.Setup(Context, _cullingResults, shadowSettings);
         _buffer.EndSample(_sampleName);
+        
         Setup();
         //绘制几何体
         DrawVisibleGeometry(useDynamicBatching, useGPUInstancing);
@@ -61,6 +63,7 @@ public partial class CameraRenderer
         ScriptableCullingParameters p;
         if (_camera.TryGetCullingParameters(out p))
         {
+            // 将最大阴影距离和相机远裁剪面做比较，取最小值作为阴影的渲染距离
             p.shadowDistance = Mathf.Min(maxShadowDistance, _camera.farClipPlane);
             _cullingResults = _Context.Cull(ref p);
             return true;
