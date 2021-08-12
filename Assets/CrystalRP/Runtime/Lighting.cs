@@ -14,12 +14,15 @@ public class Lighting
         name = _bufferName
     };
 
-    private int _directionalLightCountID = Shader.PropertyToID("_DirectionalLightCount");
-    private int _directionalLightColorsID = Shader.PropertyToID("_DirectionalLightColors");
-    private int _directionalLightDirectionsID = Shader.PropertyToID("_DirectionalLightDirections");
+    private static int _directionalLightCountID = Shader.PropertyToID("_DirectionalLightCount");
+    private static int _directionalLightColorsID = Shader.PropertyToID("_DirectionalLightColors");
+    private static int _directionalLightDirectionsID = Shader.PropertyToID("_DirectionalLightDirections");
+    private static int _DirectionalLightShadowDataId = Shader.PropertyToID("_DirectionalLightShadowData");
 
-    private static Vector4[] _directionalLightColors = new Vector4[MaxDirectionalLightCount];
-    private static Vector4[] _directionalLightDirections = new Vector4[MaxDirectionalLightCount];
+
+    private static Vector4[] _DirectionalLightColors = new Vector4[MaxDirectionalLightCount];
+    private static Vector4[] _DirectionalLightDirections = new Vector4[MaxDirectionalLightCount];
+    private static Vector4[] _DirectionalLightShadowData = new Vector4[MaxDirectionalLightCount];
 
     private CullingResults _cullingResults;
 
@@ -48,9 +51,10 @@ public class Lighting
     // 将场景主光源的颜色和方向传递到GPU
     void SetupDirectionLight(int index, ref VisibleLight visibleLight)
     {
-        _directionalLightColors[index] = visibleLight.finalColor; //光源最终颜色是通过finalcolor取
-        _directionalLightDirections[index] = -visibleLight.localToWorldMatrix.GetColumn(2); // 光照方向是通过localtoWorldMatrix取得，第 2 列为方向向量。
-        _Shadow.ReserveDirectionalShadows(visibleLight.light, index);
+        _DirectionalLightColors[index] = visibleLight.finalColor; //光源最终颜色是通过finalcolor取
+        _DirectionalLightDirections[index] = -visibleLight.localToWorldMatrix.GetColumn(2); // 光照方向是通过localtoWorldMatrix取得，第 2 列为方向向量。
+        _DirectionalLightShadowData[index] = _Shadow.ReserveDirectionalShadows(visibleLight.light, index);
+       // _Shadow.ReserveDirectionalShadows(visibleLight.light, index);
     }
 
     // 向GPU发送多光源数据
@@ -75,7 +79,8 @@ public class Lighting
         }
         
         _buffer.SetGlobalInt(_directionalLightCountID, lightCount);
-        _buffer.SetGlobalVectorArray(_directionalLightColorsID, _directionalLightColors);
-        _buffer.SetGlobalVectorArray(_directionalLightDirectionsID, _directionalLightDirections);
+        _buffer.SetGlobalVectorArray(_directionalLightColorsID, _DirectionalLightColors);
+        _buffer.SetGlobalVectorArray(_directionalLightDirectionsID, _DirectionalLightDirections);
+        _buffer.SetGlobalVectorArray(_DirectionalLightShadowDataId, _DirectionalLightShadowData);
     }
 }

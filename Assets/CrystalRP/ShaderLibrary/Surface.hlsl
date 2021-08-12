@@ -5,6 +5,7 @@
 // 存储表面相关信息
 struct Surface
 {
+    float3 position;
     float3 normal;
     float3 color;
     float alpha;

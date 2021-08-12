@@ -3,6 +3,7 @@
 
 #include "../ShaderLibrary/Core.hlsl"
 #include "../ShaderLibrary/Surface.hlsl"
+#include "../ShaderLibrary/Shadow.hlsl"
 #include "../ShaderLibrary/Light.hlsl"
 #include "../ShaderLibrary/BRDF.hlsl"
 #include "../ShaderLibrary/Lighting.hlsl"
@@ -14,6 +15,7 @@ CBUFFER_END
 
 TEXTURE2D(_BaseMap);
 SAMPLER(sampler_BaseMap);
+
 
 UNITY_INSTANCING_BUFFER_START(UnityPerMaterial)
 UNITY_DEFINE_INSTANCED_PROP(float4, _BaseMap_ST)
@@ -71,6 +73,7 @@ float4 litPassFragment(Varyings input):SV_Target
 #endif
 
     Surface surface;
+    surface.position = input.positionWS;
     surface.normal = normalize(input.normalWS);
     surface.color = color.rgb;
     surface.alpha = color.a;

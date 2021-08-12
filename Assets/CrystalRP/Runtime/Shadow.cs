@@ -8,8 +8,10 @@ using  UnityEngine.Rendering;
 public class Shadow
 {
     private const string _BufferName = "Shadows";
-    private static int _DirectionalShadowAtlasID = Shader.PropertyToID("_DirectionalShadowAltas");
+    private static int _DirectionalShadowAtlasID = Shader.PropertyToID("_DirectionalShadowAtlas");
+    private static int _DirectionalShadowMatricesID = Shader.PropertyToID("_DirectionalShadowMatrices");
 
+    private static Matrix4x4[] _DirectionalShadowMatrices = new Matrix4x4[MaxShadowDirectionalLightCount];
 
     private CommandBuffer _Buffer = new CommandBuffer() {name = _BufferName};
     private ScriptableRenderContext _Context;
@@ -85,17 +87,50 @@ public class Shadow
 
         shadowSettings.splitData = splitData;
         SetTileViewPort(index, split, tileSize);
+        // 讲视图矩阵和投影矩阵相乘，得到从世界空间到灯光空间的变换矩阵
+        _DirectionalShadowMatrices[index] = ConvertToAtlasMatrix(viewMatrix * projectionMatrix, SetTileViewPort(index, split, tileSize), split);
+        // 把阴影变换矩阵传递到GPU
+        _Buffer.SetGlobalMatrixArray(_DirectionalShadowMatricesID, _DirectionalShadowMatrices);
         _Buffer.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
         ExecuteBuffer();
         _Context.DrawShadows(ref shadowSettings);
+        
 
     }
 
-    void SetTileViewPort(int index, int split, float tileSize)
+    Vector2 SetTileViewPort(int index, int split, float tileSize)
     {
         Vector2 offset = new Vector2(index % split, index / split);
         // 设置渲染视口，拆分成多个块
         _Buffer.SetViewport(new Rect(offset.x * tileSize, offset.y*tileSize, tileSize, tileSize));
+
+        return offset;
+    }
+
+    // 把阴影变换矩阵转化到阴影图块空间中去，用于把物体从实际额空间变化到图块空间
+    Matrix4x4 ConvertToAtlasMatrix(Matrix4x4 m, Vector2 offset, int split)
+    {
+        // 如果使用了反向的Zbuffer，注意 opengl中 0 是0深度，1是最大深度。在DirectX中0是0深度，-1是最大深度
+        if (SystemInfo.usesReversedZBuffer)
+        {
+            // unity 用的是列向量
+            m.m20 = -m.m20;
+            m.m21 = -m.m21;
+            m.m22 = -m.m22;
+            m.m23 = -m.m23;
+        }
+        
+        float scale = 1f / split;
+        m.m00 = (0.5f * (m.m00 + m.m30) + offset.x * m.m30) * scale;
+        m.m01 = (0.5f * (m.m01 + m.m31) + offset.x * m.m31) * scale;
+        m.m02 = (0.5f * (m.m02 + m.m32) + offset.x * m.m32) * scale;
+        m.m03 = (0.5f * (m.m03 + m.m33) + offset.x * m.m33) * scale;
+        m.m10 = (0.5f * (m.m10 + m.m30) + offset.y * m.m30) * scale;
+        m.m11 = (0.5f * (m.m11 + m.m31) + offset.y * m.m31) * scale;
+        m.m12 = (0.5f * (m.m12 + m.m32) + offset.y * m.m32) * scale;
+        m.m13 = (0.5f * (m.m13 + m.m33) + offset.y * m.m33) * scale;
+        
+        return m;
     }
 
     void ExecuteBuffer()
@@ -107,13 +142,17 @@ public class Shadow
     
     
     // 存储可见光的阴影数据
-    public void ReserveDirectionalShadows(Light light, int visibleLightIndex)
+    public Vector2 ReserveDirectionalShadows(Light light, int visibleLightIndex)
     {
         if (_ShadowDirectionalLightCount < MaxShadowDirectionalLightCount && light.shadows != LightShadows.None &&
             light.shadowStrength > 0.0f && _CullingResults.GetShadowCasterBounds(visibleLightIndex, out Bounds b))
         {
             _ShadowDirectionalLights[_ShadowDirectionalLightCount++] = new ShadowDirectionalLight(){VisableLightIndex =  visibleLightIndex};
+
+            return new Vector2(light.shadowStrength, _ShadowDirectionalLightCount++);
         }
+        
+        return Vector2.zero;
     }
     
 }
