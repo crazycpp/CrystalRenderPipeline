@@ -72,25 +72,28 @@ public class Shadow
         {
             RenderDirectionalShadows(i, split, tileSize);
         }
-
+        _Buffer.SetGlobalMatrixArray(_DirectionalShadowMatricesID, _DirectionalShadowMatrices);
         _Buffer.EndSample(_BufferName);
-        ExecuteBuffer();
+        ExecuteBuffer(); 
     }
 
     void RenderDirectionalShadows(int index, int split, int tileSize)
     {
         ShadowDirectionalLight light = _ShadowDirectionalLights[index];
-        var shadowSettings = new ShadowDrawingSettings(_CullingResults, light.VisableLightIndex);
-
-        _CullingResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(light.VisableLightIndex, 0, 1, Vector3.zero,tileSize, 0,
-            out Matrix4x4 viewMatrix, out Matrix4x4 projectionMatrix, out ShadowSplitData splitData);
+        var shadowSettings =
+            new ShadowDrawingSettings(_CullingResults, light.VisableLightIndex);
+        _CullingResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(
+            light.VisableLightIndex, 0, 1, Vector3.zero, tileSize, 0f,
+            out Matrix4x4 viewMatrix, out Matrix4x4 projectionMatrix,
+            out ShadowSplitData splitData
+        );
 
         shadowSettings.splitData = splitData;
-        SetTileViewPort(index, split, tileSize);
-        // 讲视图矩阵和投影矩阵相乘，得到从世界空间到灯光空间的变换矩阵
-        _DirectionalShadowMatrices[index] = ConvertToAtlasMatrix(viewMatrix * projectionMatrix, SetTileViewPort(index, split, tileSize), split);
-        // 把阴影变换矩阵传递到GPU
-        _Buffer.SetGlobalMatrixArray(_DirectionalShadowMatricesID, _DirectionalShadowMatrices);
+        SetTileViewport(index, split, tileSize);
+        _DirectionalShadowMatrices[index] = ConvertToAtlasMatrix(
+            projectionMatrix * viewMatrix,
+            SetTileViewport(index, split, tileSize), split
+        );
         _Buffer.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
         ExecuteBuffer();
         _Context.DrawShadows(ref shadowSettings);
@@ -98,7 +101,7 @@ public class Shadow
 
     }
 
-    Vector2 SetTileViewPort(int index, int split, float tileSize)
+    Vector2 SetTileViewport(int index, int split, float tileSize)
     {
         Vector2 offset = new Vector2(index % split, index / split);
         // 设置渲染视口，拆分成多个块
@@ -113,13 +116,12 @@ public class Shadow
         // 如果使用了反向的Zbuffer，注意 opengl中 0 是0深度，1是最大深度。在DirectX中0是0深度，-1是最大深度
         if (SystemInfo.usesReversedZBuffer)
         {
-            // unity 用的是列向量
             m.m20 = -m.m20;
             m.m21 = -m.m21;
             m.m22 = -m.m22;
             m.m23 = -m.m23;
         }
-        
+        //设置矩阵坐标
         float scale = 1f / split;
         m.m00 = (0.5f * (m.m00 + m.m30) + offset.x * m.m30) * scale;
         m.m01 = (0.5f * (m.m01 + m.m31) + offset.x * m.m31) * scale;
@@ -129,6 +131,10 @@ public class Shadow
         m.m11 = (0.5f * (m.m11 + m.m31) + offset.y * m.m31) * scale;
         m.m12 = (0.5f * (m.m12 + m.m32) + offset.y * m.m32) * scale;
         m.m13 = (0.5f * (m.m13 + m.m33) + offset.y * m.m33) * scale;
+        m.m20 = 0.5f * (m.m20 + m.m30);
+        m.m21 = 0.5f * (m.m21 + m.m31);
+        m.m22 = 0.5f * (m.m22 + m.m32);
+        m.m23 = 0.5f * (m.m23 + m.m33);
         
         return m;
     }
@@ -147,7 +153,7 @@ public class Shadow
         if (_ShadowDirectionalLightCount < MaxShadowDirectionalLightCount && light.shadows != LightShadows.None &&
             light.shadowStrength > 0.0f && _CullingResults.GetShadowCasterBounds(visibleLightIndex, out Bounds b))
         {
-            _ShadowDirectionalLights[_ShadowDirectionalLightCount++] = new ShadowDirectionalLight(){VisableLightIndex =  visibleLightIndex};
+            _ShadowDirectionalLights[_ShadowDirectionalLightCount] = new ShadowDirectionalLight(){VisableLightIndex =  visibleLightIndex};
 
             return new Vector2(light.shadowStrength, _ShadowDirectionalLightCount++);
         }
