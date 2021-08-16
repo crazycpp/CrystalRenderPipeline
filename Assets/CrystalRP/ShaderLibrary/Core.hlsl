@@ -34,4 +34,10 @@ float Square(float v)
     return v*v;
 }
 
+//计算两点间距离的平方
+float DistanceSequared(float3 A, float3 B)
+{
+    return dot(A-B, A-B);
+}
+
 #endif

@@ -10,8 +10,11 @@ public class Shadow
     private const string _BufferName = "Shadows";
     private static int _DirectionalShadowAtlasID = Shader.PropertyToID("_DirectionalShadowAtlas");
     private static int _DirectionalShadowMatricesID = Shader.PropertyToID("_DirectionalShadowMatrices");
+    private static int _CascadeCountID = Shader.PropertyToID("_CascadeCount");
+    private static int _CascadeCullingSpheredsID = Shader.PropertyToID("_CascadeCullingSpheres");
 
-    private static Matrix4x4[] _DirectionalShadowMatrices = new Matrix4x4[MaxShadowDirectionalLightCount];
+    private static Matrix4x4[] _DirectionalShadowMatrices = new Matrix4x4[MaxShadowDirectionalLightCount*MaxCascades];
+    private static Vector4[] _CascadeCullingSpheres = new Vector4[MaxCascades];
 
     private CommandBuffer _Buffer = new CommandBuffer() {name = _BufferName};
     private ScriptableRenderContext _Context;
@@ -20,6 +23,7 @@ public class Shadow
 
     // 支持阴影的最大方向光数量
     private const int MaxShadowDirectionalLightCount = 4;
+    private const int MaxCascades = 4;
 
     private int _ShadowDirectionalLightCount;
     struct ShadowDirectionalLight
@@ -66,12 +70,19 @@ public class Shadow
         _Buffer.BeginSample(_BufferName);
         ExecuteBuffer();
         // 重新分割阴影图快的大小和数量
-        int split = _ShadowDirectionalLightCount <= 1 ? 1 : 2;
+        int tiles = _ShadowDirectionalLightCount * _ShadowSettings.DirectionalSettings.CascadeCount;
+        int split = tiles <= 1 ? 1 : tiles <= 4 ? 2 : 4;
         int tileSize = atlasSize / split;
         for (int i = 0; i < _ShadowDirectionalLightCount; i++)
         {
             RenderDirectionalShadows(i, split, tileSize);
         }
+        
+        // 将级联和保卫求数据发送到GPU 
+        _Buffer.SetGlobalInt(_CascadeCountID, _ShadowSettings.DirectionalSettings.CascadeCount);
+        _Buffer.SetGlobalVectorArray(
+            _CascadeCullingSpheredsID, _CascadeCullingSpheres
+        );
         _Buffer.SetGlobalMatrixArray(_DirectionalShadowMatricesID, _DirectionalShadowMatrices);
         _Buffer.EndSample(_BufferName);
         ExecuteBuffer(); 
@@ -82,23 +93,38 @@ public class Shadow
         ShadowDirectionalLight light = _ShadowDirectionalLights[index];
         var shadowSettings =
             new ShadowDrawingSettings(_CullingResults, light.VisableLightIndex);
-        _CullingResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(
-            light.VisableLightIndex, 0, 1, Vector3.zero, tileSize, 0f,
-            out Matrix4x4 viewMatrix, out Matrix4x4 projectionMatrix,
-            out ShadowSplitData splitData
-        );
 
-        shadowSettings.splitData = splitData;
-        SetTileViewport(index, split, tileSize);
-        _DirectionalShadowMatrices[index] = ConvertToAtlasMatrix(
-            projectionMatrix * viewMatrix,
-            SetTileViewport(index, split, tileSize), split
-        );
-        _Buffer.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
-        ExecuteBuffer();
-        _Context.DrawShadows(ref shadowSettings);
-        
+        int cascadeCount = _ShadowSettings.DirectionalSettings.CascadeCount;
+        int tileOffset = index * cascadeCount;
+        Vector3 ratios = _ShadowSettings.DirectionalSettings.CascadeRatios;
+        for (int i = 0; i < cascadeCount; i++)
+        {
+            _CullingResults.ComputeDirectionalShadowMatricesAndCullingPrimitives(
+                light.VisableLightIndex, i, cascadeCount, ratios, tileSize, 0f,
+                out Matrix4x4 viewMatrix, out Matrix4x4 projectionMatrix,
+                out ShadowSplitData splitData
+            );
 
+            shadowSettings.splitData = splitData;
+
+            if (index == 0)
+            {
+                Vector4 cullingSphere = splitData.cullingSphere;
+                cullingSphere.w *= cullingSphere.w;
+                _CascadeCullingSpheres[i] = splitData.cullingSphere;
+            }
+            
+            SetTileViewport(index, split, tileSize);
+            // 重新调整图块索引，在光源的index上加上casdcade的索引
+            int tileIndex = tileOffset + i;
+            _DirectionalShadowMatrices[tileIndex] = ConvertToAtlasMatrix(
+                projectionMatrix * viewMatrix,
+                SetTileViewport(tileIndex, split, tileSize), split
+            );
+            _Buffer.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
+            ExecuteBuffer();
+            _Context.DrawShadows(ref shadowSettings);
+        }
     }
 
     Vector2 SetTileViewport(int index, int split, float tileSize)
@@ -155,7 +181,8 @@ public class Shadow
         {
             _ShadowDirectionalLights[_ShadowDirectionalLightCount] = new ShadowDirectionalLight(){VisableLightIndex =  visibleLightIndex};
 
-            return new Vector2(light.shadowStrength, _ShadowDirectionalLightCount++);
+            // 返回阴影强度和阴影图块的索引，这里要乘以级联数量
+            return new Vector2(light.shadowStrength, _ShadowSettings.DirectionalSettings.CascadeCount*_ShadowDirectionalLightCount++);
         }
         
         return Vector2.zero;

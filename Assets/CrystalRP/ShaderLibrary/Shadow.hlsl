@@ -2,6 +2,7 @@
 #define CUSTOM_SHADOWS_INCLUDED
 
 #define MAX_SHADOWED_DIRECTIONAL_LIGHT_COUNT 4
+#define MAX_CASCADE_COUNT 4
 
 // 阴影图集
 TEXTURE2D_SHADOW(_DirectionalShadowAtlas);
@@ -9,7 +10,9 @@ TEXTURE2D_SHADOW(_DirectionalShadowAtlas);
 SAMPLER_CMP(SHADOW_SAMPLER);
 
 CBUFFER_START(_CrystalShadows)
-float4x4 _DirectionalShadowMatrices[MAX_SHADOWED_DIRECTIONAL_LIGHT_COUNT];
+    int _CascadeCount;
+    float4 _CascadeCullingSpheres[MAX_CASCADE_COUNT];
+    float4x4 _DirectionalShadowMatrices[MAX_SHADOWED_DIRECTIONAL_LIGHT_COUNT*MAX_CASCADE_COUNT];
 CBUFFER_END
 
 
@@ -19,6 +22,28 @@ struct DirectionalShadowData
     float strength;
     int tileIndex;
 };
+
+struct ShadowData
+{
+    int cascadeIndex;
+};
+
+ShadowData GetShadowData(Surface surfaceWS)
+{
+    ShadowData data;
+    int i;
+    for (i=0; i<_CascadeCount; i++)
+    {
+        float4 sphere = _CascadeCullingSpheres[i];
+        float distanceSqr = DistanceSequared(surfaceWS.position, sphere.xyz);
+        if (distanceSqr < sphere.w)
+        {
+            break;
+        }
+    }
+    data.cascadeIndex = i;
+    return data;
+}
 
 
 // 采样阴影图集

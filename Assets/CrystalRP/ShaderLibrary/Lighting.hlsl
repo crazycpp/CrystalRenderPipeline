@@ -14,12 +14,14 @@ float3 GetLighting(Surface surface, BRDF brdf, Light light)
     return IncomingLight(surface, light)*DirectBRDF(surface, brdf, light);
 }
  
-float3 GetLighting(Surface surface, BRDF brdf)
+float3 GetLighting(Surface surfaceWS, BRDF brdf)
 {
+    // 得到表面的阴影数据
+    ShadowData showData = GetShadowData(surfaceWS);
     float3 finalColor = 0.0;
     for (int i=0; i<GetDirectionalLightCount(); i++)
     {
-        finalColor += GetLighting(surface, brdf, GetDirectionLight(i, surface));
+        finalColor += GetLighting(surfaceWS, brdf, GetDirectionLight(i, surfaceWS, showData));
     }
 
     return finalColor;
