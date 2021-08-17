@@ -54,7 +54,6 @@ public class Lighting
         _DirectionalLightColors[index] = visibleLight.finalColor; //光源最终颜色是通过finalcolor取
         _DirectionalLightDirections[index] = -visibleLight.localToWorldMatrix.GetColumn(2); // 光照方向是通过localtoWorldMatrix取得，第 2 列为方向向量。
         _DirectionalLightShadowData[index] = _Shadow.ReserveDirectionalShadows(visibleLight.light, index);
-       // _Shadow.ReserveDirectionalShadows(visibleLight.light, index);
     }
 
     // 向GPU发送多光源数据

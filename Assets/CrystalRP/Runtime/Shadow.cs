@@ -12,6 +12,7 @@ public class Shadow
     private static int _DirectionalShadowMatricesID = Shader.PropertyToID("_DirectionalShadowMatrices");
     private static int _CascadeCountID = Shader.PropertyToID("_CascadeCount");
     private static int _CascadeCullingSpheredsID = Shader.PropertyToID("_CascadeCullingSpheres");
+    private static int _ShadowDistanceId = Shader.PropertyToID("_ShadowDistance");
 
     private static Matrix4x4[] _DirectionalShadowMatrices = new Matrix4x4[MaxShadowDirectionalLightCount*MaxCascades];
     private static Vector4[] _CascadeCullingSpheres = new Vector4[MaxCascades];
@@ -79,6 +80,7 @@ public class Shadow
         }
         
         // 将级联和保卫求数据发送到GPU 
+        _Buffer.SetGlobalFloat(_ShadowDistanceId, _ShadowSettings.MaxDistance);
         _Buffer.SetGlobalInt(_CascadeCountID, _ShadowSettings.DirectionalSettings.CascadeCount);
         _Buffer.SetGlobalVectorArray(
             _CascadeCullingSpheredsID, _CascadeCullingSpheres
@@ -111,7 +113,7 @@ public class Shadow
             {
                 Vector4 cullingSphere = splitData.cullingSphere;
                 cullingSphere.w *= cullingSphere.w;
-                _CascadeCullingSpheres[i] = splitData.cullingSphere;
+                _CascadeCullingSpheres[i] = cullingSphere;
             }
             
             SetTileViewport(index, split, tileSize);
