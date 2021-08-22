@@ -20,7 +20,7 @@ MonoBehaviour:
     DistanceFade: 0.149
     DirectionalSettings:
       AtlasSize: 1024
-      PCFFilter: 2
+      PCFFilter: 3
       CascadeCount: 4
       CascadeRatio1: 0.3
       CascadeRatio2: 0.4

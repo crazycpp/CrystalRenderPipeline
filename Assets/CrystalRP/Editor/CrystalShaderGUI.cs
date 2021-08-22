@@ -20,11 +20,11 @@ public class CrystalShaderGUI : ShaderGUI
     private bool _ShowPresets;
     public override void OnGUI(MaterialEditor materialEditor, MaterialProperty[] properties)
     {
+        EditorGUI.BeginChangeCheck();
         base.OnGUI(materialEditor, properties);
         _Editor = materialEditor;
         _Materials = _Editor.targets;
         _Properties = properties;
-        EditorGUI.BeginChangeCheck();
 
         _ShowPresets = EditorGUILayout.Foldout(_ShowPresets, "Presets", true);
         if (_ShowPresets)
@@ -135,7 +135,7 @@ public class CrystalShaderGUI : ShaderGUI
             Clipping = false;
             PremutiplyAlpha = false;
             SrcBlend = BlendMode.SrcAlpha;
-            DstBlend = BlendMode.OneMinusDstAlpha;
+            DstBlend = BlendMode.OneMinusSrcAlpha;
             ZWrite = false;
             RenderQueue = RenderQueue.Transparent;
         }
@@ -148,7 +148,7 @@ public class CrystalShaderGUI : ShaderGUI
             Clipping = false;
             PremutiplyAlpha = true;
             SrcBlend = BlendMode.SrcAlpha;
-            DstBlend = BlendMode.OneMinusDstAlpha;
+            DstBlend = BlendMode.OneMinusSrcAlpha;
             ZWrite = false;
             RenderQueue = RenderQueue.Transparent;
         }
@@ -208,7 +208,7 @@ public class CrystalShaderGUI : ShaderGUI
 
     void SetShadowCasterPass()
     {
-        MaterialProperty shadows = FindProperty("_Shadow", _Properties, false);
+        MaterialProperty shadows = FindProperty("_Shadows", _Properties, false);
         if (shadows == null || shadows.hasMixedValue)
         {
             return;
@@ -217,7 +217,7 @@ public class CrystalShaderGUI : ShaderGUI
         bool enalbled = shadows.floatValue < (float) ShadowMode.Off;
         foreach (Material m in _Materials)
         {
-            m.SetShaderPassEnabled("ShowCaster", enalbled);
+            m.SetShaderPassEnabled("ShadowCaster", enalbled);
         }
 
     }

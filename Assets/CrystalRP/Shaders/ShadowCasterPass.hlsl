@@ -60,7 +60,7 @@ void ShadowCasterPassFragment(Varyings input)
     //透明度低于阈值，舍弃
     clip(base.a - UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Cutoff));
     #elif defined(_SHADOWS_DITHER)
-    float dither = InterleavedGradientNoise(input.positionCS.xy, 0)
+    float dither = InterleavedGradientNoise(input.positionCS.xy, 0);
     clip(base.a - dither);
     #endif
 }
