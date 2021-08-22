@@ -36,6 +36,12 @@ Varyings ShadowCasterPassVertex(Attributes input)
     float3 positionWS = TransformObjectToWorld(input.positionOS);
     output.positionCS = TransformWorldToHClip(positionWS);
 
+    #if UNITY_REVERSED_Z
+    output.positionCS.z = min(output.positionCS.z, output.positionCS.w * UNITY_NEAR_CLIP_VALUE);
+    #else
+    output.positionCS.z = max(output.positionCS.z, output.positionCS.w * UNITY_NEAR_CLIP_VALUE);
+    #endif
+
     // 计算所覅昂和偏移后的UV坐标
     float4 baseST = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseMap_ST);
     output.baseUV = input.baseUV*baseST.xy +baseST.zw;
@@ -50,11 +56,13 @@ void ShadowCasterPassFragment(Varyings input)
     // 通过Unity_Access_Instanced_Prop访问material属性
     float4 baseColor = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
     float4 base = baseMap * baseColor;
-    #if defined(_CLIPPING)
+    #if defined(_SHADOWS_CLIP)
     //透明度低于阈值，舍弃
     clip(base.a - UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Cutoff));
+    #elif defined(_SHADOWS_DITHER)
+    float dither = InterleavedGradientNoise(input.positionCS.xy, 0)
+    clip(base.a - dither);
     #endif
-
 }
 
 

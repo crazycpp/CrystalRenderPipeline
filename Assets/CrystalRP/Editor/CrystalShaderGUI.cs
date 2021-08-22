@@ -5,6 +5,14 @@ using UnityEngine.Rendering;
 
 public class CrystalShaderGUI : ShaderGUI
 {
+    enum ShadowMode
+    {
+        On,
+        Clip,
+        Dither,
+        Off
+    }
+    
     private MaterialEditor _Editor;
     private Object[] _Materials;
     private MaterialProperty[] _Properties;
@@ -16,6 +24,7 @@ public class CrystalShaderGUI : ShaderGUI
         _Editor = materialEditor;
         _Materials = _Editor.targets;
         _Properties = properties;
+        EditorGUI.BeginChangeCheck();
 
         _ShowPresets = EditorGUILayout.Foldout(_ShowPresets, "Presets", true);
         if (_ShowPresets)
@@ -25,8 +34,23 @@ public class CrystalShaderGUI : ShaderGUI
             FadePreset();
             TransparentPreset();
         }
+        //如果材质属性有被更改，检查阴影模式的设置状态
+        if (EditorGUI.EndChangeCheck())
+        {
+            SetShadowCasterPass();
+        }
     }
-    
+
+    ShadowMode Shadows
+    {
+        set
+        {
+            if (SetProperty("_Shadows", (float)value)) {
+                SetKeyword("_SHADOWS_CLIP", value == ShadowMode.Clip);
+                SetKeyword("_SHADOWS_DITHER", value == ShadowMode.Dither);
+            }
+        }
+    }
 
     private bool Clipping
     {
@@ -130,9 +154,21 @@ public class CrystalShaderGUI : ShaderGUI
         }
     }
     
-    void SetProperty(string name, float value)
+    /// <summary>
+    /// 设置材质属性
+    /// </summary>
+    /// <param name="name"></param>
+    /// <param name="value"></param>
+    /// <returns></returns>
+    bool SetProperty(string name, float value)
     {
-        FindProperty(name, _Properties).floatValue = value;
+        MaterialProperty property = FindProperty(name, _Properties, false);
+        if (property != null)
+        {
+            property.floatValue = value;
+            return true;
+        }
+        return false;
     }
 
     /// <summary>
@@ -140,7 +176,7 @@ public class CrystalShaderGUI : ShaderGUI
     /// </summary>
     /// <param name="keyword"></param>
     /// <param name="enable"></param>
-    void SetKeyWord(string keyword, bool enable)
+    void SetKeyword(string keyword, bool enable)
     {
         if (enable)
         {
@@ -167,6 +203,22 @@ public class CrystalShaderGUI : ShaderGUI
     void SetProperty(string name, string keyword, bool value)
     {
         SetProperty(name, value?1f:0f);
-        SetKeyWord(name, value);
+        SetKeyword(keyword, value);
+    }
+
+    void SetShadowCasterPass()
+    {
+        MaterialProperty shadows = FindProperty("_Shadow", _Properties, false);
+        if (shadows == null || shadows.hasMixedValue)
+        {
+            return;
+        }
+
+        bool enalbled = shadows.floatValue < (float) ShadowMode.Off;
+        foreach (Material m in _Materials)
+        {
+            m.SetShaderPassEnabled("ShowCaster", enalbled);
+        }
+
     }
 }
