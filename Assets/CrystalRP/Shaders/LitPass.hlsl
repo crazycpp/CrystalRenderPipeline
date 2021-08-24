@@ -6,6 +6,7 @@
 #include "../ShaderLibrary/Shadow.hlsl"
 #include "../ShaderLibrary/Light.hlsl"
 #include "../ShaderLibrary/BRDF.hlsl"
+#include "../ShaderLibrary/GI.hlsl"
 #include "../ShaderLibrary/Lighting.hlsl"
 
 /*CBUFFER_START(UnityPerMaterial)
@@ -31,6 +32,7 @@ struct Attributes
     float3 positionOS : POSITION;
     float3 normalOS : NORMAL;
     float2 baseUV : TEXCOORD0;
+    GI_ATTRIBUTE_DATA
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
@@ -40,6 +42,7 @@ struct Varyings
     float3 positionWS:VAR_POSITION;
     float3 normalWS:VAR_NORMAL;
     float2 baseUV :VAR_BASE_UV;
+    GI_VARYINGS_DATA
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
@@ -49,6 +52,7 @@ Varyings litPassVertex(Attributes input)
     Varyings output;
     UNITY_SETUP_INSTANCE_ID(input)
     UNITY_TRANSFER_INSTANCE_ID(input, output);
+    TRANSFER_GI_DATA(input, output);
     output.positionWS = TransformObjectToWorld(input.positionOS);
     output.positionCS = TransformWorldToHClip(output.positionWS);
     output.normalWS = TransformObjectToWorldNormal(input.normalOS);
@@ -88,9 +92,9 @@ float4 litPassFragment(Varyings input):SV_TARGET
 #else
     BRDF brdf = GetBRDF(surface);
 #endif
-    
 
-    float3 finalcolor = GetLighting(surface, brdf);
+    GI gi = GetGI(GI_FRAGMENT_DATA(input), surface);
+    float3 finalcolor = GetLighting(surface, brdf, gi);
 
     return float4(finalcolor, surface.alpha);
 }

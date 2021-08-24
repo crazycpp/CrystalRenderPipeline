@@ -80,7 +80,8 @@ public partial class CameraRenderer
         var drawSettings = new DrawingSettings(_unlitShaderTagId, sortingSettings)
         {
             enableDynamicBatching =  useDynamicBatching,
-            enableInstancing = useGPUInstancing
+            enableInstancing = useGPUInstancing,
+            perObjectData = PerObjectData.Lightmaps | PerObjectData.LightProbe,
         };
         
         // 同时渲染CrystalLit表示的pass
