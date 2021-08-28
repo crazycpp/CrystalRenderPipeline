@@ -16,6 +16,11 @@ Shader "CrystalRenderPipeline/Unlit"
     }
     SubShader
     {
+        HLSLINCLUDE
+        #include "../ShaderLibrary/Core.hlsl"
+        #include "UnlitInput.hlsl"
+        ENDHLSL
+
         Pass
         {
             Blend[_SrcBlend][_DstBlend]

@@ -81,7 +81,7 @@ public partial class CameraRenderer
         {
             enableDynamicBatching =  useDynamicBatching,
             enableInstancing = useGPUInstancing,
-            perObjectData = PerObjectData.Lightmaps | PerObjectData.LightProbe,
+            perObjectData = PerObjectData.Lightmaps | PerObjectData.LightProbe | PerObjectData.LightProbeProxyVolume,
         };
         
         // 同时渲染CrystalLit表示的pass

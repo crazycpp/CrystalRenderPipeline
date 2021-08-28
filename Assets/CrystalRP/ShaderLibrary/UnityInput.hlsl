@@ -17,6 +17,12 @@ float4 unity_SHBg;
 float4 unity_SHBb;
 float4 unity_SHC;
 
+// 光照探针代理体相关属性
+float4 unity_ProbeVolumeParams;
+float4x4 unity_ProbeVolumeWorldToObject;
+float4 unity_ProbeVolumeSizeInv;
+float4 unity_ProbeVolumeMin;
+
 CBUFFER_END
 
 float3 _WorldSpaceCameraPos;

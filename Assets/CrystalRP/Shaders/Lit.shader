@@ -17,15 +17,19 @@ Shader "CrystalRenderPipeline/Lit"
 
         _Metallic("Metallic", Range(0, 1)) = 0
         _Smoothness("Smoothness", Range(0,1)) = 0.5
-        
-	   //阴影模式
-	   [KeywordEnum(On, Clip, Dither, Off)] _Shadows ("Shadows", Float) = 0
-	   //是否接受阴影
-	   [Toggle(_RECEIVE_SHADOWS)] _ReceiveShadows ("Receive Shadows", Float) = 1
+
+        //阴影模式
+        [KeywordEnum(On, Clip, Dither, Off)] _Shadows ("Shadows", Float) = 0
+        //是否接受阴影
+        [Toggle(_RECEIVE_SHADOWS)] _ReceiveShadows ("Receive Shadows", Float) = 1
 
     }
     SubShader
     {
+        HLSLINCLUDE
+        #include "../ShaderLibrary/Core.hlsl"
+        #include "LitInput.hlsl"
+        ENDHLSL
         Pass
         {
             Tags
@@ -71,6 +75,24 @@ Shader "CrystalRenderPipeline/Lit"
             #pragma vertex ShadowCasterPassVertex
             #pragma fragment ShadowCasterPassFragment
             #include "ShadowCasterPass.hlsl"
+            ENDHLSL
+        }
+
+        Pass
+        {
+            Tags
+            {
+                "LightMode" = "Meta"
+            } 
+
+            Cull off
+
+
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma vertex MetaPassVertex
+            #pragma fragment MetaPassFragment
+            #include "MetaPass.hlsl"
             ENDHLSL
         }
     }
