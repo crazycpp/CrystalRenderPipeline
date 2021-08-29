@@ -5,6 +5,9 @@ Shader "CrystalRenderPipeline/Lit"
         _BaseMap("Texture", 2D) = "white"{}
         _BaseColor("Color", Color) = (0.5, 0.5, 0.5, 1.0)
 
+        [NoScaleOffset] _EmissionMap("Emission", 2D) = "white" {}
+        [HDR] _EmissionColor("Emission", Color) = (0.0, 0.0, 0.0, 0.0)
+
         // alpha test threshold
         _Cutoff("Alpha Cutoff", Range(0.0, 1.0)) = 0.5
         [Toggle(_CLIPPING)]_Clipping("Alpha Clipping", Float) = 0
@@ -22,6 +25,9 @@ Shader "CrystalRenderPipeline/Lit"
         [KeywordEnum(On, Clip, Dither, Off)] _Shadows ("Shadows", Float) = 0
         //是否接受阴影
         [Toggle(_RECEIVE_SHADOWS)] _ReceiveShadows ("Receive Shadows", Float) = 1
+
+        [HideInInspector] _MainTex("Texture for Lightmap", 2D) = "white" {}
+        [HideInInspector] _Color("Color for Lightmap", Color) = (0.5, 0.5, 0.5, 1.0)
 
     }
     SubShader
@@ -83,7 +89,7 @@ Shader "CrystalRenderPipeline/Lit"
             Tags
             {
                 "LightMode" = "Meta"
-            } 
+            }
 
             Cull off
 

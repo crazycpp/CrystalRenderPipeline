@@ -25,6 +25,8 @@ public class CrystalShaderGUI : ShaderGUI
         _Editor = materialEditor;
         _Materials = _Editor.targets;
         _Properties = properties;
+        
+        BakeEmission();
 
         _ShowPresets = EditorGUILayout.Foldout(_ShowPresets, "Presets", true);
         if (_ShowPresets)
@@ -38,8 +40,11 @@ public class CrystalShaderGUI : ShaderGUI
         if (EditorGUI.EndChangeCheck())
         {
             SetShadowCasterPass();
+            CopyLightMappingProperties();
         }
     }
+    
+    
 
     ShadowMode Shadows
     {
@@ -98,6 +103,17 @@ public class CrystalShaderGUI : ShaderGUI
         }
 
         return false;
+    }
+
+    void BakeEmission()
+    {
+        EditorGUI.BeginChangeCheck();
+        _Editor.LightmapEmissionProperty();
+        if (EditorGUI.EndChangeCheck()) {
+            foreach (Material m in _Editor.targets) {
+                m.globalIlluminationFlags &= ~MaterialGlobalIlluminationFlags.EmissiveIsBlack;
+            }
+        }
     }
 
     void OpaquePreset()
@@ -220,5 +236,22 @@ public class CrystalShaderGUI : ShaderGUI
             m.SetShaderPassEnabled("ShadowCaster", enalbled);
         }
 
+    }
+
+    // 把对对纹理的修改同步到对光照贴图的属性中去
+    void CopyLightMappingProperties()
+    {
+        MaterialProperty mainTex = FindProperty("_MainTex", _Properties, false);
+        MaterialProperty baseMap = FindProperty("_BaseMap", _Properties, false);
+        if (mainTex != null && baseMap != null) {
+            mainTex.textureValue = baseMap.textureValue;
+            mainTex.textureScaleAndOffset = baseMap.textureScaleAndOffset;
+        }
+        MaterialProperty color = FindProperty("_Color", _Properties, false);
+        MaterialProperty baseColor =
+            FindProperty("_BaseColor", _Properties, false);
+        if (color != null && baseColor != null) {
+            color.colorValue = baseColor.colorValue;
+        }
     }
 }

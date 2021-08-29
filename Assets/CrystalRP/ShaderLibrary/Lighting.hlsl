@@ -24,8 +24,6 @@ float3 GetLighting(Surface surfaceWS, BRDF brdf, GI gi)
         finalColor += GetLighting(surfaceWS, brdf, GetDirectionLight(i, surfaceWS, showData));
     }
 
-    finalColor = gi.diffuse;
-
     return finalColor;
 }
 
