@@ -23,17 +23,17 @@ TEXTURE2D_SHADOW(_DirectionalShadowAtlas);
 SAMPLER_CMP(SHADOW_SAMPLER);
 
 CBUFFER_START(_CrystalShadows)
-    int _CascadeCount;
-    float4 _CascadeCullingSpheres[MAX_CASCADE_COUNT];
-    float4x4 _DirectionalShadowMatrices[MAX_SHADOWED_DIRECTIONAL_LIGHT_COUNT*MAX_CASCADE_COUNT];
-    float _ShadowDistance;
-    // 阴影过渡距离
-    float4 _ShadowDistanceFade;
-    // 级联数据
-    float4 _CascadeData[MAX_CASCADE_COUNT];
+int _CascadeCount;
+float4 _CascadeCullingSpheres[MAX_CASCADE_COUNT];
+float4x4 _DirectionalShadowMatrices[MAX_SHADOWED_DIRECTIONAL_LIGHT_COUNT * MAX_CASCADE_COUNT];
+float _ShadowDistance;
+// 阴影过渡距离
+float4 _ShadowDistanceFade;
+// 级联数据
+float4 _CascadeData[MAX_CASCADE_COUNT];
 
-    // 阴影图集尺寸
-    float4 _ShadowAtlasSize;
+// 阴影图集尺寸
+float4 _ShadowAtlasSize;
 CBUFFER_END
 
 
@@ -46,6 +46,14 @@ struct DirectionalShadowData
     float normalBias;
 };
 
+// 阴影遮罩 
+struct ShadowMask
+{
+    // 用于标记是否使用distance的mask模式
+    float distance;
+    float4 shadows;
+};
+
 struct ShadowData
 {
     // 阴影强度
@@ -55,10 +63,13 @@ struct ShadowData
 
     // 混合级联
     float cascadeBlend;
+
+    ShadowMask shadowMask;
 };
 
 
-float FadedShadowStrength (float distance, float scale, float fade) {
+float FadedShadowStrength(float distance, float scale, float fade)
+{
     return saturate((1.0 - distance * scale) * fade);
 }
 
@@ -66,24 +77,25 @@ ShadowData GetShadowData(Surface surfaceWS)
 {
     ShadowData data;
     data.cascadeBlend = 1.0f;
+    data.shadowMask.distance = false;
+    data.shadowMask.shadows = 1.0f;
     // 得到有线性过渡的阴影强度
     data.strength = FadedShadowStrength(surfaceWS.depth, _ShadowDistanceFade.x, _ShadowDistanceFade.y);
     int i;
     //如果物体表面到球心的平方距离小于球体半径的平方，就说明该物体在这层级联包围球中，得到合适的级联层级索引
-    for (i=0; i<_CascadeCount; i++)
+    for (i = 0; i < _CascadeCount; i++)
     {
-        
         float4 sphere = _CascadeCullingSpheres[i];
         float distanceSqr = DistanceSequared(surfaceWS.position, sphere.xyz);
-        if (i == _CascadeCount -1)
+        if (i == _CascadeCount - 1)
         {
-            data.strength *=FadedShadowStrength(distanceSqr, _CascadeData[i].x, _ShadowDistanceFade.z);
+            data.strength *= FadedShadowStrength(distanceSqr, _CascadeData[i].x, _ShadowDistanceFade.z);
         }
 
         if (distanceSqr < sphere.w)
         {
             float fade = FadedShadowStrength(distanceSqr, _CascadeData[i].x, _ShadowDistanceFade.z);
-            if (i== _CascadeCount -1)
+            if (i == _CascadeCount - 1)
             {
                 data.strength *= fade;
             }
@@ -96,7 +108,7 @@ ShadowData GetShadowData(Surface surfaceWS)
     }
 
     // 超出了阴影范围外，则把阴影强度改为0
-    if (i==_CascadeCount)
+    if (i == _CascadeCount)
     {
         data.strength = 0;
     }
@@ -108,15 +120,34 @@ ShadowData GetShadowData(Surface surfaceWS)
     #endif
 
     #if !defined(_CASCADE_BLEND_SOFT)
-        data.cascadeBlend = 1.0f;
+    data.cascadeBlend = 1.0f;
     #endif
-    
 
-    
+
     data.cascadeIndex = i;
     return data;
 }
 
+// 得到烘焙的阴影值
+float GetBakedShadow(ShadowMask mask)
+{
+    float shadow = 1.0;
+    if (mask.distance)
+    {
+        shadow = mask.shadows.r;
+    }
+    return shadow;
+}
+
+float MixBakedAndRealtimeShadows(ShadowData global, float shadow, float strength)
+{
+    float baked = GetBakedShadow(global.shadowMask);
+    if (global.shadowMask.distance)
+    {
+        shadow = baked;
+    }
+    return lerp(1.0, shadow, strength);
+}
 
 // 采样阴影图集
 float SampleDirectionalShadowAtlas(float3 positionSTS)
@@ -134,7 +165,7 @@ float FilterDirectionalShadow(float3 positionSTS)
     float2 positions[DIRECTIONAL_FILTER_SAMPLES];
     float4 size = _ShadowAtlasSize.yyxx;
 
-    // 第一个参数中xy表示图集图素大小，第二个参数表示原始样本的位置，后梁个样本和权重和样本位置
+    // 第一个参数中xy表示图集图素大小，第二个参数表示原始样本的位置，后两个个样本和权重和样本位置
     DIRECTIONAL_FILTER_SETUP(size, positionSTS.xyz, weights, positions);
     float shadow = 0;
     for (int i=0; i<DIRECTIONAL_FILTER_SAMPLES; i++)
@@ -148,6 +179,24 @@ float FilterDirectionalShadow(float3 positionSTS)
     #endif
 }
 
+float GetCascadedShadow(DirectionalShadowData directional, ShadowData globalShadowData, Surface surfaceWS)
+{
+    // 计算法线偏差
+    float3 normalBias = surfaceWS.normal * (directional.normalBias * _CascadeData[globalShadowData.cascadeIndex].y);
+    float3 positionSTS = mul(_DirectionalShadowMatrices[directional.tileIndex],
+                             float4(surfaceWS.position + normalBias, 1.0)).xyz;
+    float shadow = FilterDirectionalShadow(positionSTS);
+    if (globalShadowData.cascadeBlend < 1.0)
+    {
+        normalBias = surfaceWS.normal * (directional.normalBias * _CascadeData[globalShadowData.cascadeIndex + 1].y);
+        positionSTS = mul(_DirectionalShadowMatrices[directional.tileIndex + 1],
+                          float4(surfaceWS.position + normalBias, 1.0)).xyz;
+        shadow = lerp(FilterDirectionalShadow(positionSTS), shadow, globalShadowData.cascadeBlend);
+    }
+    return shadow;
+}
+
+
 // 计算阴影衰减
 float GetDirectionalShadowAttenuation(DirectionalShadowData data, ShadowData globalShadowData, Surface surfaceWS)
 {
@@ -155,27 +204,36 @@ float GetDirectionalShadowAttenuation(DirectionalShadowData data, ShadowData glo
     return 1.0f;
     #endif
 
+    float shadow;
     if (data.strength <= 0.0)
     {
-        return 1.0;
+        shadow = 1.0;
+    }
+    else
+    {
+        shadow = GetCascadedShadow(data, globalShadowData, surfaceWS);
+        shadow = MixBakedAndRealtimeShadows(globalShadowData, shadow, data.strength);
+        
     }
 
+    return shadow;
+    /*
+
     // 计算发现偏差
-    float3 normalBias = surfaceWS.normal *(data.normalBias * _CascadeData[globalShadowData.cascadeIndex].y);
-    
+    float3 normalBias = surfaceWS.normal * (data.normalBias * _CascadeData[globalShadowData.cascadeIndex].y);
+
     // 通过加上法线偏移后的表面顶点位置，得到在阴影纹理空间的新位置，然后对图集进行采样
     float4 positionSTS = mul(_DirectionalShadowMatrices[data.tileIndex], float4(surfaceWS.position + normalBias, 1.0));
     float shadow = FilterDirectionalShadow(positionSTS.xyz);
     // 如果级联混合小于1代表在级联层级过渡区域中，必须从给下一个几连中采样并在两个值之间进行插值
     if (globalShadowData.cascadeBlend < 1.0f)
     {
-        normalBias = surfaceWS.normal * (data.normalBias * _CascadeData[globalShadowData.cascadeIndex+1].y);
-        positionSTS = mul(_DirectionalShadowMatrices[data.tileIndex+1], float4(surfaceWS.position + normalBias, 1.0));
+        normalBias = surfaceWS.normal * (data.normalBias * _CascadeData[globalShadowData.cascadeIndex + 1].y);
+        positionSTS = mul(_DirectionalShadowMatrices[data.tileIndex + 1], float4(surfaceWS.position + normalBias, 1.0));
         shadow = lerp(FilterDirectionalShadow(positionSTS), shadow, globalShadowData.cascadeBlend);
     }
     return lerp(1.0, shadow, data.strength);
+    */
 }
-
-
 
 #endif

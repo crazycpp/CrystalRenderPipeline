@@ -1,8 +1,7 @@
 using System;
-using  UnityEngine;
+using UnityEngine;
 using UnityEngine.Experimental.Rendering;
-using  UnityEngine.Rendering;
-
+using UnityEngine.Rendering;
 
 
 public class Shadow
@@ -13,12 +12,11 @@ public class Shadow
     private static int _CascadeCountID = Shader.PropertyToID("_CascadeCount");
     private static int _CascadeCullingSpheredsID = Shader.PropertyToID("_CascadeCullingSpheres");
     private static int _ShadowDistanceFadeID = Shader.PropertyToID("_ShadowDistanceFade");
-    //private static int _ShadowDistanceID = Shader.PropertyToID("_ShadowDistance");
     private static int _CascadeDataID = Shader.PropertyToID("_CascadeData");
     private static int _ShadowAtlasSizeID = Shader.PropertyToID("_ShadowAtlasSize");
-    
 
-    private static Matrix4x4[] _DirectionalShadowMatrices = new Matrix4x4[MaxShadowDirectionalLightCount*MaxCascades];
+
+    private static Matrix4x4[] _DirectionalShadowMatrices = new Matrix4x4[MaxShadowDirectionalLightCount * MaxCascades];
     private static Vector4[] _CascadeCullingSpheres = new Vector4[MaxCascades];
     private static Vector4[] _CascadeData = new Vector4[MaxCascades];
 
@@ -27,6 +25,11 @@ public class Shadow
         "_DIRECTIONAL_PCF3",
         "_DIRECTIONAL_PCF5",
         "_DIRECTIONAL_PCF7",
+    };
+
+    private static string[] _ShadowMaskKeywords =
+    {
+        "_SHADOW_MASK_DISTANCE",
     };
 
     private static string[] _CascadeBlendKeywords = {"_CASCADE_BLEND_SOFT", "_CASCADE_BLEND_DITHER"};
@@ -41,18 +44,23 @@ public class Shadow
     private const int MaxCascades = 4;
 
     private int _ShadowDirectionalLightCount;
+
     struct ShadowedDirectionalLight
     {
         public int VisableLightIndex;
-        
+
         // 斜度比例偏差
         public float SlopeScaleBias;
+
         // 阴影视锥体近裁剪平面偏移
         public float NearPlaneOffset;
     }
-    
+
     // 保存可投影方向光的索引
-    ShadowedDirectionalLight[] _ShadowedDirectionalLights = new ShadowedDirectionalLight[MaxShadowDirectionalLightCount];
+    ShadowedDirectionalLight[] _ShadowedDirectionalLights =
+        new ShadowedDirectionalLight[MaxShadowDirectionalLightCount];
+
+    private bool _UseShadowMask;
 
     public void Setup(ScriptableRenderContext context, CullingResults cullingResults, ShadowSettings shadowSettings)
     {
@@ -61,6 +69,7 @@ public class Shadow
         _ShadowSettings = shadowSettings;
 
         _ShadowDirectionalLightCount = 0;
+        _UseShadowMask = false;
     }
 
     public void Render()
@@ -69,6 +78,11 @@ public class Shadow
         {
             RenderDirectionalShadows();
         }
+        
+        _Buffer.BeginSample(_BufferName);
+        SetKeywords(_ShadowMaskKeywords, _UseShadowMask ? 0:-1);
+        _Buffer.EndSample(_BufferName);
+        ExecuteBuffer();
     }
 
     public void Cleanup()
@@ -80,13 +94,15 @@ public class Shadow
     void RenderDirectionalShadows()
     {
         int atlasSize = (int) _ShadowSettings.DirectionalSettings.AtlasSize;
-        _Buffer.GetTemporaryRT(_DirectionalShadowAtlasID, atlasSize, atlasSize,32, FilterMode.Bilinear, RenderTextureFormat.Shadowmap);
-        
+        _Buffer.GetTemporaryRT(_DirectionalShadowAtlasID, atlasSize, atlasSize, 32, FilterMode.Bilinear,
+            RenderTextureFormat.Shadowmap);
+
         // 把渲染数据存储的到_DirectionalShadowAtlas中
-        _Buffer.SetRenderTarget(_DirectionalShadowAtlasID, RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+        _Buffer.SetRenderTarget(_DirectionalShadowAtlasID, RenderBufferLoadAction.DontCare,
+            RenderBufferStoreAction.Store);
         // 清除深度缓冲区
         _Buffer.ClearRenderTarget(true, false, Color.clear);
-        
+
         _Buffer.BeginSample(_BufferName);
         ExecuteBuffer();
         // 重新分割阴影图快的大小和数量
@@ -97,11 +113,12 @@ public class Shadow
         {
             RenderDirectionalShadows(i, split, tileSize);
         }
-        
+
         // 将级联和包围球数据发送到GPU 
-       // _Buffer.SetGlobalFloat(_ShadowDistanceID, _ShadowSettings.MaxDistance);
+        // _Buffer.SetGlobalFloat(_ShadowDistanceID, _ShadowSettings.MaxDistance);
         float f = 1 - _ShadowSettings.DirectionalSettings.CascadeFade;
-        _Buffer.SetGlobalVector(_ShadowDistanceFadeID, new Vector4(1/_ShadowSettings.MaxDistance, 1/_ShadowSettings.DistanceFade, 1f/(1f-f*f)));
+        _Buffer.SetGlobalVector(_ShadowDistanceFadeID,
+            new Vector4(1 / _ShadowSettings.MaxDistance, 1 / _ShadowSettings.DistanceFade, 1f / (1f - f * f)));
         _Buffer.SetGlobalInt(_CascadeCountID, _ShadowSettings.DirectionalSettings.CascadeCount);
         _Buffer.SetGlobalVectorArray(_CascadeCullingSpheredsID, _CascadeCullingSpheres);
         // 发送级联数据到GPU
@@ -112,9 +129,9 @@ public class Shadow
         SetKeywords(_DirectionalFilterKeywords, (int) _ShadowSettings.DirectionalSettings.PCFFilter - 1);
         SetKeywords(_CascadeBlendKeywords, (int) _ShadowSettings.DirectionalSettings.CascadeBlend - 1);
         // 发送图集大小和纹素大小
-        _Buffer.SetGlobalVector(_ShadowAtlasSizeID, new Vector4(atlasSize, 1f/atlasSize));
+        _Buffer.SetGlobalVector(_ShadowAtlasSizeID, new Vector4(atlasSize, 1f / atlasSize));
         _Buffer.EndSample(_BufferName);
-        ExecuteBuffer(); 
+        ExecuteBuffer();
     }
 
     void RenderDirectionalShadows(int index, int split, int tileSize)
@@ -141,10 +158,9 @@ public class Shadow
             // 取第一个光源的包围球就行了
             if (index == 0)
             {
-
                 SetCascadeData(i, splitData.cullingSphere, tileSize);
             }
-            
+
             SetTileViewport(index, split, tileSize);
             // 重新调整图块索引，在光源的index上加上casdcade的索引
             int tileIndex = tileOffset + i;
@@ -152,13 +168,13 @@ public class Shadow
                 projectionMatrix * viewMatrix,
                 SetTileViewport(tileIndex, split, tileSize), split
             );
-            
+
             // 设置阴影偏差
             _Buffer.SetGlobalDepthBias(0, light.SlopeScaleBias);
             _Buffer.SetViewProjectionMatrices(viewMatrix, projectionMatrix);
             ExecuteBuffer();
             _Context.DrawShadows(ref shadowSettings);
-            _Buffer.SetGlobalDepthBias(0f,0f);
+            _Buffer.SetGlobalDepthBias(0f, 0f);
         }
     }
 
@@ -176,11 +192,11 @@ public class Shadow
         _CascadeData[index] = new Vector4(1 / cullingSphere.w, filterSize * 1.4142136f);
     }
 
-        Vector2 SetTileViewport(int index, int split, float tileSize)
+    Vector2 SetTileViewport(int index, int split, float tileSize)
     {
         Vector2 offset = new Vector2(index % split, index / split);
         // 设置渲染视口，拆分成多个块
-        _Buffer.SetViewport(new Rect(offset.x * tileSize, offset.y*tileSize, tileSize, tileSize));
+        _Buffer.SetViewport(new Rect(offset.x * tileSize, offset.y * tileSize, tileSize, tileSize));
 
         return offset;
     }
@@ -196,6 +212,7 @@ public class Shadow
             m.m22 = -m.m22;
             m.m23 = -m.m23;
         }
+
         //设置矩阵坐标
         float scale = 1f / split;
         m.m00 = (0.5f * (m.m00 + m.m30) + offset.x * m.m30) * scale;
@@ -210,7 +227,7 @@ public class Shadow
         m.m21 = 0.5f * (m.m21 + m.m31);
         m.m22 = 0.5f * (m.m22 + m.m32);
         m.m23 = 0.5f * (m.m23 + m.m33);
-        
+
         return m;
     }
 
@@ -219,9 +236,8 @@ public class Shadow
         _Context.ExecuteCommandBuffer(_Buffer);
         _Buffer.Clear();
     }
-    
-    
-    
+
+
     // 存储可见光的阴影数据
     public Vector3 ReserveDirectionalShadows(Light light, int visibleLightIndex)
     {
@@ -230,15 +246,24 @@ public class Shadow
         {
             _ShadowedDirectionalLights[_ShadowDirectionalLightCount] = new ShadowedDirectionalLight()
             {
-                VisableLightIndex =  visibleLightIndex, 
-                SlopeScaleBias = light.shadowBias, 
+                VisableLightIndex = visibleLightIndex,
+                SlopeScaleBias = light.shadowBias,
                 NearPlaneOffset = light.shadowNearPlane
             };
 
+            LightBakingOutput lightBaking = light.bakingOutput;
+            if (lightBaking.lightmapBakeType == LightmapBakeType.Baked ||
+                lightBaking.mixedLightingMode == MixedLightingMode.Shadowmask)
+            {
+                _UseShadowMask = true;
+            }
+
             // 返回阴影强度和阴影图块的索引，这里要乘以级联数量
-            return new Vector3(light.shadowStrength, _ShadowSettings.DirectionalSettings.CascadeCount*_ShadowDirectionalLightCount++, light.shadowNormalBias);
+            return new Vector3(light.shadowStrength,
+                _ShadowSettings.DirectionalSettings.CascadeCount * _ShadowDirectionalLightCount++,
+                light.shadowNormalBias);
         }
-        
+
         return Vector2.zero;
     }
 

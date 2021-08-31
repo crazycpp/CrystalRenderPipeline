@@ -17,11 +17,13 @@ float3 GetLighting(Surface surface, BRDF brdf, Light light)
 float3 GetLighting(Surface surfaceWS, BRDF brdf, GI gi)
 {
     // 得到表面的阴影数据
-    ShadowData showData = GetShadowData(surfaceWS);
+    ShadowData shadowData = GetShadowData(surfaceWS);
+    shadowData.shadowMask = gi.shadowMask;
+    //return gi.shadowMask.shadows.rgb;
     float3 finalColor = gi.diffuse * brdf.diffuse;
     for (int i=0; i<GetDirectionalLightCount(); i++)
     {
-        finalColor += GetLighting(surfaceWS, brdf, GetDirectionLight(i, surfaceWS, showData));
+        finalColor += GetLighting(surfaceWS, brdf, GetDirectionLight(i, surfaceWS, shadowData));
     }
 
     return finalColor;

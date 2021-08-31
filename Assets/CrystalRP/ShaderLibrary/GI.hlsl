@@ -21,6 +21,10 @@
 TEXTURE2D(unity_Lightmap);
 SAMPLER(samplerunity_Lightmap);
 
+// 阴影遮罩
+TEXTURE2D(unity_ShadowMask);
+SAMPLER(samplerunity_ShadowMask);
+
 // 光照探针代理体贴图
 TEXTURE3D_FLOAT(unity_ProbeVolumeSH);
 SAMPLER(samplerunity_ProbeVolumeSH);
@@ -41,6 +45,25 @@ float3 SampleLightMap(float2 lightMapUV)
     return 0.0;
 
 #endif
+}
+
+float4 SampleBakedShadow(float2 lightMapUV, Surface surfaceWS)
+{
+    #if defined(LIGHTMAP_ON)
+    return SAMPLE_TEXTURE2D(unity_ShadowMask, samplerunity_ShadowMask, lightMapUV);
+    #else
+    if (unity_ProbeVolumeParams.x) {
+        return SampleProbeOcclusion(
+            TEXTURE3D_ARGS(unity_ProbeVolumeSH, samplerunity_ProbeVolumeSH),
+            surfaceWS.position, unity_ProbeVolumeWorldToObject,
+            unity_ProbeVolumeParams.y, unity_ProbeVolumeParams.z,
+            unity_ProbeVolumeMin.xyz, unity_ProbeVolumeSizeInv.xyz
+        );
+    }
+    else {
+        return unity_ProbesOcclusion;
+    }
+    #endif
 }
 
 // 光照探针采样
@@ -75,12 +98,21 @@ struct GI
 {
     // 漫反射颜色
     float3 diffuse;
+    ShadowMask shadowMask;
 };
 
 GI GetGI(float2 lightMapUV, Surface surfaceWS)
 {
     GI gi;
     gi.diffuse = SampleLightMap(lightMapUV) + SampleLightProbe(surfaceWS);
+
+    #if defined(_SHADOW_MASK_DISTANCE)
+    gi.shadowMask.distance = true;
+    gi.shadowMask.shadows = SampleBakedShadow(lightMapUV, surfaceWS);
+    #else
+    gi.shadowMask.distance = false;
+    gi.shadowMask.shadows = 1.0;   
+    #endif
     return gi;
 }
 
